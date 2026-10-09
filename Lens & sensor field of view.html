@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lens &amp; sensor field of view</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#e6ecee;--panel:#f6f9f9;--ink:#16262b;--mute:#5a6f76;--line:#c3d0d4;--acc:#0e6c77;--hot:#d35a1c;--sel:#16262b;--selink:#f6f9f9;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1518;--panel:#172125;--ink:#e2ecee;--mute:#8aa1a8;--line:#2b3a40;--acc:#4cc3cf;--hot:#f0904f;--sel:#e2ecee;--selink:#0f1518}}
+:root[data-theme="dark"]{--bg:#0f1518;--panel:#172125;--ink:#e2ecee;--mute:#8aa1a8;--line:#2b3a40;--acc:#4cc3cf;--hot:#f0904f;--sel:#e2ecee;--selink:#0f1518}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 "Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em}
+header{padding:20px 20px 0;max-width:1180px;margin:0 auto}
+header p{margin:4px 0 0;color:var(--mute)}
+.wrap{display:grid;grid-template-columns:320px 1fr;gap:18px;max-width:1180px;margin:0 auto;padding:18px 20px 32px}
+@media (max-width:820px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.ctl{display:flex;flex-direction:column;gap:20px;align-self:start}
+.row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px}
+.row label,.row b{font-weight:600}
+.num{display:flex;align-items:baseline;gap:4px}
+.num input{width:76px;font:inherit;font-weight:600;text-align:right;background:transparent;color:var(--ink);border:0;border-bottom:1px solid var(--line);padding:2px}
+.num span{color:var(--mute)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+button{font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer}
+button:hover{border-color:var(--ink)}
+button[aria-pressed=true],button[aria-checked=true]{background:var(--sel);color:var(--selink);border-color:var(--sel)}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.sens{display:flex;flex-direction:column;gap:6px}
+.sens button{display:flex;justify-content:space-between;text-align:left;padding:7px 10px}
+.sens small{opacity:.75}
+.toggle{width:100%;padding:10px;font-weight:600;border-radius:8px}
+.views{display:flex;flex-direction:column;gap:18px;min-width:0}
+.vhead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;color:var(--mute)}
+.vhead b{color:var(--ink)}
+.photoRow{display:flex;gap:8px;align-items:stretch}
+.photoCol{flex:1;min-width:0}
+.photo{position:relative;width:100%;overflow:hidden;border-radius:4px;border:1px solid var(--line);background:#222}
+.photo svg{display:block;width:100%;height:100%}
+.photo.nolens svg{filter:blur(28px) brightness(1.15);transform:scale(1.4)}
+.photo .msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:16px;color:#fff;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.photo.nolens .msg{display:flex}
+.bx{margin-top:6px;border:1px solid var(--acc);border-top:0;height:8px;text-align:center}
+.bx span{position:relative;top:10px;color:var(--acc);font-weight:600}
+.by{border:1px solid var(--acc);border-left:0;width:8px;display:flex;align-items:center}
+.by span{writing-mode:vertical-rl;margin-left:12px;color:var(--acc);font-weight:600;white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:30px}
+.stats div{border-left:3px solid var(--acc);padding-left:10px}
+.stats small{display:block;color:var(--mute)}
+.stats strong{font-size:19px;font-weight:700}
+.diag{width:100%;height:auto;display:block}
+.diag text{fill:var(--ink);font:500 12px "Instrument Sans",system-ui,sans-serif}
+.diag .m{fill:var(--mute)}
+.cone{fill:var(--acc);fill-opacity:.16;stroke:var(--acc);stroke-width:1.5}
+.bar{stroke:var(--acc);stroke-width:4}
+.ln{stroke:var(--mute);stroke-width:1;fill:none}
+.ray{stroke:var(--hot);stroke-width:1.5;stroke-dasharray:4 4;opacity:.7}
+.cam{fill:var(--ink)}
+.glass{fill:var(--acc)}
+.deerTop{fill:var(--hot)}
+.note{margin:8px 0 0;color:var(--mute);font-size:13px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <h1>Lens &amp; sensor field of view</h1>
+  <p>Change the lens, sensor or distance and see what the camera captures.</p>
+</header>
+<div class="wrap">
+  <div class="card ctl">
+    <div>
+      <div class="row"><b>Subject</b></div>
+      <div class="chips" id="subj"><button data-s="deer" aria-pressed="true">Deer</button><button data-s="human" aria-pressed="false">Human</button></div>
+      <p class="note" id="dnote"></p>
+      <div id="hrow" hidden>
+        <div class="row"><label for="hN">Person's height</label><div class="num"><input id="hN" type="number" min="0.5" max="2.4" step="0.01"><span>m</span></div></div>
+        <input id="hS" type="range" min="0.5" max="2.2" step="0.01" aria-label="Person height slider">
+      </div>
+    </div>
+    <div>
+      <div class="row"><label for="fN">Focal length</label><div class="num"><input id="fN" type="number" min="8" max="1200" step="1"><span>mm</span></div></div>
+      <input id="fS" type="range" min="0" max="1000" aria-label="Focal length slider">
+      <div class="chips" id="presets"></div>
+    </div>
+    <div>
+      <div class="row"><b>Sensor size</b></div>
+      <div class="sens" id="sens" role="radiogroup" aria-label="Sensor size"></div>
+    </div>
+    <div>
+      <div class="row"><label for="dN">Distance to subject</label><div class="num"><input id="dN" type="number" min="0.3" max="500" step="0.5"><span>m</span></div></div>
+      <input id="dS" type="range" min="0" max="1000" aria-label="Distance slider">
+    </div>
+    <button class="toggle" id="lensBtn" aria-pressed="true"></button>
+  </div>
+
+  <div class="views">
+    <div class="card">
+      <div class="vhead"><b id="ttl">What the sensor records</b><span id="cap"></span></div>
+      <div class="photoRow">
+        <div class="photoCol">
+          <div class="photo" id="photo"><div id="scene" style="width:100%;height:100%"></div></div>
+          <div class="bx"><span id="wLab"></span></div>
+        </div>
+        <div class="by"><span id="hLab"></span></div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="card">
+      <div class="vhead"><b>Top view</b><span id="dcap"></span></div>
+      <svg class="diag" id="diag" viewBox="0 0 800 300" role="img" aria-label="Top-down diagram of camera, field of view and deer"></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+const SENS=[
+ {n:'Full frame',d:'36 × 24 mm',w:36,h:24},
+ {n:'APS-H (Canon)',d:'27.9 × 18.6 mm',w:27.9,h:18.6},
+ {n:'APS-C (Nikon, Sony)',d:'23.5 × 15.6 mm',w:23.5,h:15.6},
+ {n:'APS-C (Canon)',d:'22.3 × 14.9 mm',w:22.3,h:14.9},
+ {n:'Micro Four Thirds',d:'17.3 × 13 mm',w:17.3,h:13}
+];
+const PRE=[14,24,35,50,85,135,200,400,800];
+const FMIN=8,FMAX=800,DMIN=0.5,DMAX=200;
+const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75};
+const DEERH=1.7;
+const subjH=()=>st.subj==='deer'?DEERH:st.hum;
+const subjName=()=>st.subj==='deer'?'deer':'person';
+function humanSVG(h){const k=h/180;
+ return `<g transform="translate(${-30*k},${-90*k}) scale(${k})" stroke-linecap="round" stroke-linejoin="round">
+<ellipse cx="30" cy="179" rx="26" ry="2.5" fill="#000" opacity=".25"/>
+<rect x="16" y="88" width="13" height="88" rx="4" fill="#2d3a4f"/><rect x="31" y="88" width="13" height="88" rx="4" fill="#2d3a4f"/>
+<ellipse cx="22" cy="177" rx="10" ry="3" fill="#1a1a1a"/><ellipse cx="38" cy="177" rx="10" ry="3" fill="#1a1a1a"/>
+<path d="M14,34L9,86M46,34L51,86" stroke="#3f6fa0" stroke-width="9" fill="none"/>
+<circle cx="9" cy="89" r="4.5" fill="#d8a47f"/><circle cx="51" cy="89" r="4.5" fill="#d8a47f"/>
+<rect x="13" y="26" width="34" height="68" rx="9" fill="#3f6fa0"/>
+<rect x="26" y="20" width="8" height="9" fill="#d8a47f"/>
+<circle cx="30" cy="12" r="11" fill="#d8a47f"/><path d="M19,10C19,1 41,1 41,10C38,6 22,6 19,10Z" fill="#4a3320"/>
+</g>`;}
+const subjectSVG=()=>st.subj==='deer'?DEER:humanSVG(st.hum);
+const $=id=>document.getElementById(id);
+const fmtM=v=>v<1?(v*100).toFixed(v<0.1?1:0)+' cm':v<10?v.toFixed(2)+' m':v<100?v.toFixed(1)+' m':Math.round(v)+' m';
+const deg=r=>r*180/Math.PI;
+const sToV=(s,min,max)=>min*Math.pow(max/min,s/1000);
+const vToS=(v,min,max)=>Math.max(0,Math.min(1000,1000*Math.log(v/min)/Math.log(max/min)));
+
+// deer drawn in cm, 190 wide x 170 tall, facing right
+const DEER=`<g transform="translate(-0.95,-0.85) scale(0.01)" stroke-linecap="round" stroke-linejoin="round">
+<ellipse cx="95" cy="168" rx="80" ry="4" fill="#000" opacity=".25"/>
+<g stroke="#6b4426" stroke-width="8" fill="none"><path d="M118,112L121,166M104,114L102,166M34,110L28,166M48,114L50,166"/></g>
+<ellipse cx="85" cy="95" rx="60" ry="28" fill="#8e5d38"/>
+<ellipse cx="85" cy="110" rx="46" ry="12" fill="#cba47a"/>
+<path d="M116,80L146,34L164,46L140,96Z" fill="#8e5d38"/>
+<ellipse cx="166" cy="48" rx="18" ry="10" transform="rotate(28 166 48)" fill="#9a6640"/>
+<circle cx="181" cy="56" r="3.5" fill="#2a1a10"/><circle cx="168" cy="43" r="2" fill="#2a1a10"/>
+<ellipse cx="150" cy="37" rx="4" ry="10" transform="rotate(-30 150 37)" fill="#7a4d2c"/>
+<path d="M27,80L22,98L38,92Z" fill="#f2e8d8"/>
+<path d="M153,32C149,20 143,10 136,2M148,18L159,8M144,10L132,12M157,32C159,20 167,10 173,4M164,17L175,18" stroke="#eadfc4" stroke-width="3.2" fill="none"/>
+</g>`;
+const rnd=i=>Math.abs(Math.sin(i*12.9898)*43758.5453)%1;
+
+function sceneSVG(W,H,d){
+  const u=d*0.012,step=u*2.2,n=Math.min(500,Math.ceil(W/2/step)+2);
+  let t=`M${-n*step},${u*.6}`;
+  for(let i=-n;i<=n;i++){const x=i*step,h=u*(3+4*rnd(i));t+=`L${x-step*.5},${-h*.3}L${x},${-h}`}
+  t+=`L${n*step},${u*.6}Z`;
+  return `<svg viewBox="${-W/2} ${-H/2} ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb2d6"/><stop offset="1" stop-color="#e9dcc2"/></linearGradient>
+<linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8c9a55"/><stop offset="1" stop-color="#4f6a35"/></linearGradient></defs>
+<rect x="${-W/2-1}" y="${-H/2-1}" width="${W+2}" height="${H/2+1}" fill="url(#sky)"/>
+<rect x="${-W/2-1}" y="0" width="${W+2}" height="${H/2+1}" fill="url(#gr)"/>
+<path d="${t}" fill="#2f4a3a"/>${subjectSVG()}</svg>`;
+}
+
+function topDiagram(W,H,s,hf){
+  const lens=st.lens,f=st.f,d=st.d;
+  const L=10+f/FMAX*50, ox=lens?48+L:46, xsMax=715;
+  let sc=Math.min((xsMax-ox)/d,125/(W/2));
+  const xs=ox+d*sc, cy=150, hw=W/2*sc;
+  let g='';
+  const kk=st.subj==='deer'?1:st.hum*.075, rx=Math.min(40,Math.max(4,(st.subj==='deer'?.25:.5*kk)*sc)), ry=Math.min(148,Math.max(9,(st.subj==='deer'?.75:kk*1.75)*sc));
+  g+=`<ellipse class="deerTop" cx="${xs}" cy="${cy}" rx="${rx}" ry="${ry}"/>`;
+  g+=`<polygon class="cone" points="${ox},${cy} ${xs},${cy-hw} ${xs},${cy+hw}"/>`;
+  g+=`<line class="bar" x1="${xs}" x2="${xs}" y1="${cy-hw}" y2="${cy+hw}"/>`;
+  g+=`<text x="${Math.min(xs+10,742)}" y="${cy-hw-6<14?cy+hw+16:cy-hw-6}">${fmtM(W)} wide</text>`;
+  g+=`<text class="m" x="14" y="205">${hf.toFixed(lens?1:0)}° horizontal</text>`;
+  if(lens){
+    g+=`<rect class="cam" x="14" y="132" width="34" height="36" rx="5"/><rect class="cam" x="48" y="140" width="${L}" height="20"/><rect class="glass" x="${48+L-3}" y="138" width="3" height="24"/>`;
+    g+=`<text class="m" x="14" y="188">Camera</text>`;
+  }else{
+    g+=`<circle class="cam" cx="28" cy="150" r="18"/><path class="cam" d="M44,146L52,150L44,154Z"/><circle fill="var(--panel)" cx="40" cy="143" r="2.5"/><circle fill="var(--panel)" cx="40" cy="157" r="2.5"/>`;
+    g+=`<text class="m" x="14" y="188">Your eyes</text>`;
+  }
+  g+=`<line class="ln" x1="${ox}" x2="${xs}" y1="282" y2="282"/><line class="ln" x1="${ox}" x2="${ox}" y1="276" y2="288"/><line class="ln" x1="${xs}" x2="${xs}" y1="276" y2="288"/>`;
+  g+=`<text x="${(ox+xs)/2}" y="274" text-anchor="middle">${fmtM(d)}</text>`;
+  g+=`<text class="m" x="${xs}" y="${Math.min(cy+ry+16,262)}" text-anchor="middle">${st.subj==='deer'?'Deer':'Person'}</text>`;
+  return g;
+}
+
+function render(){
+  const s=SENS[st.s],f=st.f,d=st.d;
+  const eye=!st.lens;
+  const hf=eye?120:deg(2*Math.atan(s.w/2/f)),vf=eye?80:deg(2*Math.atan(s.h/2/f));
+  const W=eye?2*d*Math.tan(hf*Math.PI/360):d*s.w/f,H=eye?2*d*Math.tan(vf*Math.PI/360):d*s.h/f;
+  $('fN').value=f;$('dN').value=st.d;
+  const sh=subjH(),nm=subjName();
+  document.querySelectorAll('#subj button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===st.subj));
+  $('hrow').hidden=st.subj!=='human';
+  if(document.activeElement!==$('hN'))$('hN').value=st.hum;
+  $('hS').value=st.hum;
+  $('dnote').textContent=st.subj==='deer'?'Height used: 1.7 m, a standing buck measured from hooves to antler tips (about 1.9 m long).':'';
+  $('fS').value=vToS(f,FMIN,FMAX);$('dS').value=vToS(d,DMIN,DMAX);
+  document.querySelectorAll('#presets button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.f===f));
+  document.querySelectorAll('#sens button').forEach((b,i)=>b.setAttribute('aria-checked',i===st.s));
+  $('lensBtn').setAttribute('aria-pressed',st.lens);
+  $('lensBtn').textContent=st.lens?'Lens on · tap to remove lens':'Naked eye · tap to attach lens';
+  document.querySelectorAll('#presets button,#sens button,#fN,#fS').forEach(el=>el.disabled=eye);
+  document.querySelector('#fN').closest('div.row').parentElement.style.opacity=eye?.45:1;
+  document.querySelector('#sens').parentElement.style.opacity=eye?.45:1;
+  $('ttl').textContent=eye?'What your eye sees':'What the sensor records';
+  const ph=$('photo');
+  ph.style.aspectRatio=eye?(W/H):(s.w+'/'+s.h);
+  $('scene').innerHTML=sceneSVG(W,H,d);
+  $('cap').textContent=eye?'Human vision, about 120° × 80°':`${s.n} · ${f} mm`;
+  $('wLab').textContent=fmtM(W);
+  $('hLab').textContent=fmtM(H);
+  const dash='—',L=true;
+  const fill=Math.min(100,sh/H*100);
+  $('stats').innerHTML=[
+    ['Captured width',L?fmtM(W):dash],['Captured height',L?fmtM(H):dash],
+    ['Area',L?(W*H<1?(W*H*1e4).toFixed(0)+' cm²':(W*H).toFixed(1)+' m²'):dash],
+    ['Angle of view',L?`${hf.toFixed(1)}° × ${vf.toFixed(1)}°`:dash],
+    [(nm==='deer'?'Deer':'Person')+' fills',L?(fill>=100?'100%+':fill.toFixed(fill<10?1:0)+'%')+' of height':dash]
+  ].map(([a,b])=>`<div><small>${a}</small><strong>${b}</strong></div>`).join('');
+  $('dcap').textContent=L?`${fmtM(d)} to the ${nm}`:`${fmtM(d)} to the ${nm} · naked eye`;
+  $('diag').innerHTML=topDiagram(W,H,s,hf);
+}
+
+// build controls
+$('presets').innerHTML=PRE.map(p=>`<button data-f="${p}" aria-pressed="false">${p}</button>`).join('');
+$('presets').onclick=e=>{const b=e.target.closest('button');if(b){st.f=+b.dataset.f;render()}};
+$('sens').innerHTML=SENS.map((s,i)=>`<button role="radio" data-i="${i}" aria-checked="false"><span>${s.n}</span><small>${s.d}</small></button>`).join('');
+$('sens').onclick=e=>{const b=e.target.closest('button');if(b){st.s=+b.dataset.i;render()}};
+$('fS').oninput=e=>{st.f=Math.round(sToV(+e.target.value,FMIN,FMAX));render()};
+$('dS').oninput=e=>{const v=sToV(+e.target.value,DMIN,DMAX);st.d=v<10?Math.round(v*10)/10:Math.round(v);render()};
+$('fN').oninput=e=>{const v=+e.target.value;if(v>=FMIN&&v<=1200){st.f=v;renderKeep('fN')}};
+$('dN').oninput=e=>{const v=+e.target.value;if(v>=0.3&&v<=500){st.d=v;renderKeep('dN')}};
+$('subj').onclick=e=>{const b=e.target.closest('button');if(b){st.subj=b.dataset.s;render()}};
+$('hS').oninput=e=>{st.hum=+e.target.value;render()};
+$('hN').oninput=e=>{const v=+e.target.value;if(v>=0.5&&v<=2.4){st.hum=v;render()}};
+$('lensBtn').onclick=()=>{st.lens=!st.lens;render()};
+function renderKeep(id){const el=$(id),val=el.value;render();el.value=val}
+render();
+</script>
+</body>
+</html>
