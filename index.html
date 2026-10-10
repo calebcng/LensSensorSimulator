@@ -44,6 +44,7 @@ button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid 
 .photoCol{flex:1;min-width:0}
 .photo{position:relative;width:100%;overflow:hidden;border-radius:4px;border:1px solid var(--line);background:#222;cursor:grab;touch-action:none;user-select:none}
 .photo.dragging{cursor:grabbing}
+.crop{position:absolute;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.55);outline:1px solid rgba(255,255,255,.7)}
 .photo svg{display:block;width:100%;height:100%}
 .photo.nolens svg{filter:blur(28px) brightness(1.15);transform:scale(1.4)}
 .photo .msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:16px;color:#fff;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.6)}
@@ -97,6 +98,10 @@ button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid 
       <div class="sens" id="sens" role="radiogroup" aria-label="Sensor size"></div>
     </div>
     <div>
+      <div class="row"><b>Crop</b></div>
+      <div class="chips" id="cropSel" role="radiogroup" aria-label="Crop"></div>
+    </div>
+    <div>
       <div class="row"><label for="dN">Distance to subject</label><div class="num"><input id="dN" type="number" min="0.3" max="500" step="0.5"><span>m</span></div></div>
       <input id="dS" type="range" min="0" max="1000" aria-label="Distance slider">
     </div>
@@ -108,7 +113,7 @@ button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid 
       <div class="vhead"><b id="ttl">What the sensor records</b><span class="vtools"><button type="button" id="recenter" disabled>Recenter</button><span id="cap"></span></span></div>
       <div class="photoRow">
         <div class="photoCol">
-          <div class="photo" id="photo" tabindex="0" aria-label="Recorded picture. Drag to reframe."><div id="scene" style="width:100%;height:100%"></div></div>
+          <div class="photo" id="photo" tabindex="0" aria-label="Recorded picture. Drag to reframe."><div id="scene" style="width:100%;height:100%"></div><div class="crop" id="crop" hidden></div></div>
           <div class="bx"><span id="wLab"></span></div>
         </div>
         <div class="by"><span id="hLab"></span></div>
@@ -132,8 +137,9 @@ const SENS=[
  {n:'Micro Four Thirds',d:'17.3 × 13 mm',w:17.3,h:13}
 ];
 const PRE=[14,24,35,50,85,135,200,400,800];
+const CROPS=[{id:'full',n:'Full sensor'},{id:'4:3',n:'4:3',r:4/3},{id:'3:2',n:'3:2',r:3/2},{id:'16:9',n:'16:9',r:16/9},{id:'1:1',n:'1:1',r:1}];
 const FMIN=8,FMAX=800,DMIN=0.5,DMAX=200;
-const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75,panX:0,panY:0};
+const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75,panX:0,panY:0,crop:'4:3'};
 const DEERH=1.7;
 const subjH=()=>st.subj==='deer'?DEERH:st.hum;
 const subjName=()=>st.subj==='deer'?'deer':'person';
@@ -243,6 +249,15 @@ function render(){
   const ph=$('photo');
   ph.style.aspectRatio=eye?(W/H):(s.w+'/'+s.h);
   $('scene').innerHTML=sceneSVG(W,H,d);
+  document.querySelectorAll('#cropSel button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.c===st.crop));
+  const crop=CROPS.find(c=>c.id===st.crop),frameA=eye?W/H:s.w/s.h,box=$('crop');
+  if(!crop||!crop.r||Math.abs(crop.r-frameA)/frameA<0.005)box.hidden=true;
+  else{
+    const wide=crop.r>frameA,pw=wide?100:100*crop.r/frameA,ph=wide?100*frameA/crop.r:100;
+    box.hidden=false;
+    box.style.left=(100-pw)/2+'%';box.style.top=(100-ph)/2+'%';
+    box.style.width=pw+'%';box.style.height=ph+'%';
+  }
   $('cap').textContent=eye?'Human vision, about 120° × 80°':`${s.n} · ${f} mm`;
   $('wLab').textContent=fmtM(W);
   $('hLab').textContent=fmtM(H);
@@ -263,6 +278,8 @@ $('presets').innerHTML=PRE.map(p=>`<button data-f="${p}" aria-pressed="false">${
 $('presets').onclick=e=>{const b=e.target.closest('button');if(b){st.f=+b.dataset.f;render()}};
 $('sens').innerHTML=SENS.map((s,i)=>`<button role="radio" data-i="${i}" aria-checked="false"><span>${s.n}</span><small>${s.d}</small></button>`).join('');
 $('sens').onclick=e=>{const b=e.target.closest('button');if(b){st.s=+b.dataset.i;render()}};
+$('cropSel').innerHTML=CROPS.map(c=>`<button type="button" data-c="${c.id}" aria-pressed="false">${c.n}</button>`).join('');
+$('cropSel').onclick=e=>{const b=e.target.closest('button');if(b){st.crop=b.dataset.c;render()}};
 $('fS').oninput=e=>{st.f=Math.round(sToV(+e.target.value,FMIN,FMAX));render()};
 $('dS').oninput=e=>{const v=sToV(+e.target.value,DMIN,DMAX);st.d=v<10?Math.round(v*10)/10:Math.round(v);render()};
 $('fN').oninput=e=>{const v=+e.target.value;if(v>=FMIN&&v<=1200){st.f=v;renderKeep('fN')}};
