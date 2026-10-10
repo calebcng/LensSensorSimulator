@@ -36,6 +36,7 @@ button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid 
 .sens button{display:flex;justify-content:space-between;text-align:left;padding:7px 10px}
 .sens small{opacity:.75}
 .toggle{width:100%;padding:10px;font-weight:600;border-radius:8px}
+.copyUrl{display:block;width:100%;margin-top:8px;font:inherit;color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:6px;padding:6px 8px}
 .views{display:flex;flex-direction:column;gap:18px;min-width:0}
 .vhead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;color:var(--mute)}
 .vhead b{color:var(--ink)}
@@ -106,6 +107,8 @@ button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid 
       <input id="dS" type="range" min="0" max="1000" aria-label="Distance slider">
     </div>
     <button class="toggle" id="lensBtn" aria-pressed="true"></button>
+    <button class="toggle" type="button" id="copyBtn" aria-live="polite">Copy link</button>
+    <input id="copyUrl" class="copyUrl" hidden readonly aria-label="Share link">
   </div>
 
   <div class="views">
@@ -138,6 +141,8 @@ const SENS=[
 ];
 const PRE=[14,24,35,50,85,105,135,200,400,800];
 const CROPS=[{id:'full',n:'Full sensor'},{id:'4:3',n:'4:3',r:4/3},{id:'3:2',n:'3:2',r:3/2},{id:'16:9',n:'16:9',r:16/9},{id:'1:1',n:'1:1',r:1}];
+const CROP_CODE={full:'full','3:2':'32','16:9':'169','1:1':'11'};
+const CODE_CROP={full:'full','32':'3:2','169':'16:9','11':'1:1'};
 const FMIN=8,FMAX=800,DMIN=0.5,DMAX=200;
 const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75,panX:0,panY:0,crop:'4:3'};
 const DEERH=1.7;
@@ -271,6 +276,53 @@ function render(){
   ].map(([a,b])=>`<div><small>${a}</small><strong>${b}</strong></div>`).join('');
   $('dcap').textContent=L?`${fmtM(d)} to the ${nm}`:`${fmtM(d)} to the ${nm} · naked eye`;
   $('diag').innerHTML=topDiagram(W,H,s,hf);
+  writeHash();
+}
+const roundTo=(v,d)=>Math.round(v*10**d)/10**d;
+function settingsHash(){
+  const q=new URLSearchParams();
+  if(st.f!==50)q.set('f',String(roundTo(st.f,2)));
+  if(st.s!==0)q.set('s',String(st.s));
+  if(st.d!==10)q.set('d',String(roundTo(st.d,2)));
+  if(!st.lens)q.set('l','0');
+  if(st.subj==='human'){
+    q.set('j','h');
+    if(Math.abs(st.hum-1.75)>1e-6)q.set('h',String(roundTo(st.hum,2)));
+  }
+  const x=roundTo(st.panX,3),y=roundTo(st.panY,3);
+  if(x)q.set('x',String(x));
+  if(y)q.set('y',String(y));
+  const code=CROP_CODE[st.crop];
+  if(code)q.set('c',code);
+  return q.toString();
+}
+let applyingHash=false;
+function applyHash(){
+  const raw=location.hash.startsWith('#')?location.hash.slice(1):'';
+  if(!raw)return;
+  let q;
+  try{q=new URLSearchParams(raw)}catch(e){return}
+  const num=k=>{const v=q.get(k);if(v==null||v==='')return null;const n=+v;return Number.isFinite(n)?n:null};
+  const f=num('f');if(f!=null&&f>=FMIN&&f<=1200)st.f=f;
+  const s=num('s');if(s!=null&&s===Math.floor(s)&&s>=0&&s<SENS.length)st.s=s;
+  const d=num('d');if(d!=null&&d>=0.3&&d<=500)st.d=d;
+  if(q.get('l')==='0')st.lens=false;
+  if(q.get('j')==='h')st.subj='human';
+  const h=num('h');if(h!=null&&h>=0.5&&h<=2.4)st.hum=h;
+  const x=num('x');if(x!=null)st.panX=x;
+  const y=num('y');if(y!=null)st.panY=y;
+  const crop=CODE_CROP[q.get('c')];if(crop)st.crop=crop;
+}
+function writeHash(){
+  if(applyingHash)return;
+  const hash=settingsHash();
+  const cur=location.hash.startsWith('#')?location.hash.slice(1):'';
+  if(cur===hash)return;
+  try{history.replaceState(null,'',location.pathname+location.search+(hash?'#'+hash:''))}catch(e){}
+}
+function shareUrl(){
+  const hash=settingsHash();
+  return location.href.split('#')[0]+(hash?'#'+hash:'');
 }
 
 // build controls
@@ -316,6 +368,22 @@ function endDrag(e){
 }
 photo.addEventListener('pointerup',endDrag);
 photo.addEventListener('pointercancel',endDrag);
+let copyTimer;
+$('copyBtn').onclick=async()=>{
+  const url=shareUrl();
+  const btn=$('copyBtn'),field=$('copyUrl');
+  let ok=false;
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(url);ok=true}
+  }catch(e){}
+  if(ok){field.hidden=true;btn.textContent='Copied'}
+  else{field.hidden=false;field.value=url;field.focus();field.select();btn.textContent='Select the link'}
+  clearTimeout(copyTimer);
+  copyTimer=setTimeout(()=>{btn.textContent='Copy link'},1600);
+};
+applyingHash=true;
+applyHash();
+applyingHash=false;
 render();
 </script>
 </body>
