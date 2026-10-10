@@ -31,7 +31,7 @@ button{font:inherit;color:var(--ink);background:transparent;border:1px solid var
 button:hover{border-color:var(--ink)}
 button[aria-pressed=true],button[aria-checked=true]{background:var(--sel);color:var(--selink);border-color:var(--sel)}
 button:disabled{opacity:.5;cursor:default}
-button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button:focus-visible,input:focus-visible,.photo:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .sens{display:flex;flex-direction:column;gap:6px}
 .sens button{display:flex;justify-content:space-between;text-align:left;padding:7px 10px}
 .sens small{opacity:.75}
@@ -39,9 +39,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .views{display:flex;flex-direction:column;gap:18px;min-width:0}
 .vhead{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px;color:var(--mute)}
 .vhead b{color:var(--ink)}
+.vtools{display:flex;align-items:center;gap:10px}
 .photoRow{display:flex;gap:8px;align-items:stretch}
 .photoCol{flex:1;min-width:0}
-.photo{position:relative;width:100%;overflow:hidden;border-radius:4px;border:1px solid var(--line);background:#222}
+.photo{position:relative;width:100%;overflow:hidden;border-radius:4px;border:1px solid var(--line);background:#222;cursor:grab;touch-action:none;user-select:none}
+.photo.dragging{cursor:grabbing}
 .photo svg{display:block;width:100%;height:100%}
 .photo.nolens svg{filter:blur(28px) brightness(1.15);transform:scale(1.4)}
 .photo .msg{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:16px;color:#fff;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.6)}
@@ -50,7 +52,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .bx span{position:relative;top:10px;color:var(--acc);font-weight:600}
 .by{border:1px solid var(--acc);border-left:0;width:8px;display:flex;align-items:center}
 .by span{writing-mode:vertical-rl;margin-left:12px;color:var(--acc);font-weight:600;white-space:nowrap}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:30px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}
 .stats div{border-left:3px solid var(--acc);padding-left:10px}
 .stats small{display:block;color:var(--mute)}
 .stats strong{font-size:19px;font-weight:700}
@@ -65,6 +67,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 .glass{fill:var(--acc)}
 .deerTop{fill:var(--hot)}
 .note{margin:8px 0 0;color:var(--mute);font-size:13px}
+.note.frameNote{margin-top:32px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -102,14 +105,15 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-of
 
   <div class="views">
     <div class="card">
-      <div class="vhead"><b id="ttl">What the sensor records</b><span id="cap"></span></div>
+      <div class="vhead"><b id="ttl">What the sensor records</b><span class="vtools"><button type="button" id="recenter" disabled>Recenter</button><span id="cap"></span></span></div>
       <div class="photoRow">
         <div class="photoCol">
-          <div class="photo" id="photo"><div id="scene" style="width:100%;height:100%"></div></div>
+          <div class="photo" id="photo" tabindex="0" aria-label="Recorded picture. Drag to reframe."><div id="scene" style="width:100%;height:100%"></div></div>
           <div class="bx"><span id="wLab"></span></div>
         </div>
         <div class="by"><span id="hLab"></span></div>
       </div>
+      <p class="note frameNote">Drag the picture to reframe.</p>
       <div class="stats" id="stats"></div>
     </div>
     <div class="card">
@@ -129,7 +133,7 @@ const SENS=[
 ];
 const PRE=[14,24,35,50,85,135,200,400,800];
 const FMIN=8,FMAX=800,DMIN=0.5,DMAX=200;
-const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75};
+const st={f:50,s:0,d:10,lens:true,subj:'deer',hum:1.75,panX:0,panY:0};
 const DEERH=1.7;
 const subjH=()=>st.subj==='deer'?DEERH:st.hum;
 const subjName=()=>st.subj==='deer'?'deer':'person';
@@ -167,15 +171,20 @@ const DEER=`<g transform="translate(-0.95,-0.85) scale(0.01)" stroke-linecap="ro
 const rnd=i=>Math.abs(Math.sin(i*12.9898)*43758.5453)%1;
 
 function sceneSVG(W,H,d){
-  const u=d*0.012,step=u*2.2,n=Math.min(500,Math.ceil(W/2/step)+2);
-  let t=`M${-n*step},${u*.6}`;
-  for(let i=-n;i<=n;i++){const x=i*step,h=u*(3+4*rnd(i));t+=`L${x-step*.5},${-h*.3}L${x},${-h}`}
-  t+=`L${n*step},${u*.6}Z`;
-  return `<svg viewBox="${-W/2} ${-H/2} ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+  const x0=-W/2+st.panX,y0=-H/2+st.panY;
+  const u=d*0.012,step=u*2.2;
+  const i0=Math.floor(x0/step)-1,i1=Math.ceil((x0+W)/step)+1;
+  let t=`M${i0*step},${u*.6}`;
+  for(let i=i0;i<=i1;i++){const x=i*step,h=u*(3+4*rnd(i));t+=`L${x-step*.5},${-h*.3}L${x},${-h}`}
+  t+=`L${i1*step},${u*.6}Z`;
+  const skyTop=y0,skyH=Math.max(0,Math.min(y0+H,0)-y0);
+  const gndTop=Math.max(y0,0),gndH=Math.max(0,y0+H-gndTop);
+  const sky=skyH>0?`<rect x="${x0-1}" y="${skyTop-1}" width="${W+2}" height="${skyH+1}" fill="url(#sky)"/>`:'';
+  const gnd=gndH>0?`<rect x="${x0-1}" y="${gndTop}" width="${W+2}" height="${gndH+1}" fill="url(#gr)"/>`:'';
+  return `<svg viewBox="${x0} ${y0} ${W} ${H}" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
 <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fb2d6"/><stop offset="1" stop-color="#e9dcc2"/></linearGradient>
 <linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8c9a55"/><stop offset="1" stop-color="#4f6a35"/></linearGradient></defs>
-<rect x="${-W/2-1}" y="${-H/2-1}" width="${W+2}" height="${H/2+1}" fill="url(#sky)"/>
-<rect x="${-W/2-1}" y="0" width="${W+2}" height="${H/2+1}" fill="url(#gr)"/>
+${sky}${gnd}
 <path d="${t}" fill="#2f4a3a"/>${subjectSVG()}</svg>`;
 }
 
@@ -183,13 +192,13 @@ function topDiagram(W,H,s,hf){
   const lens=st.lens,f=st.f,d=st.d;
   const L=10+f/FMAX*50, ox=lens?48+L:46, xsMax=715;
   let sc=Math.min((xsMax-ox)/d,125/(W/2));
-  const xs=ox+d*sc, cy=150, hw=W/2*sc;
+  const xs=ox+d*sc, cy=150, hw=W/2*sc, yC=cy+st.panX*sc;
   let g='';
   const kk=st.subj==='deer'?1:st.hum*.075, rx=Math.min(40,Math.max(4,(st.subj==='deer'?.25:.5*kk)*sc)), ry=Math.min(148,Math.max(9,(st.subj==='deer'?.75:kk*1.75)*sc));
   g+=`<ellipse class="deerTop" cx="${xs}" cy="${cy}" rx="${rx}" ry="${ry}"/>`;
-  g+=`<polygon class="cone" points="${ox},${cy} ${xs},${cy-hw} ${xs},${cy+hw}"/>`;
-  g+=`<line class="bar" x1="${xs}" x2="${xs}" y1="${cy-hw}" y2="${cy+hw}"/>`;
-  g+=`<text x="${Math.min(xs+10,742)}" y="${cy-hw-6<14?cy+hw+16:cy-hw-6}">${fmtM(W)} wide</text>`;
+  g+=`<polygon class="cone" points="${ox},${cy} ${xs},${yC-hw} ${xs},${yC+hw}"/>`;
+  g+=`<line class="bar" x1="${xs}" x2="${xs}" y1="${yC-hw}" y2="${yC+hw}"/>`;
+  g+=`<text x="${Math.min(xs+10,742)}" y="${yC-hw-6<14?yC+hw+16:yC-hw-6}">${fmtM(W)} wide</text>`;
   g+=`<text class="m" x="14" y="205">${hf.toFixed(lens?1:0)}° horizontal</text>`;
   if(lens){
     g+=`<rect class="cam" x="14" y="132" width="34" height="36" rx="5"/><rect class="cam" x="48" y="140" width="${L}" height="20"/><rect class="glass" x="${48+L-3}" y="138" width="3" height="24"/>`;
@@ -204,11 +213,16 @@ function topDiagram(W,H,s,hf){
   return g;
 }
 
-function render(){
-  const s=SENS[st.s],f=st.f,d=st.d;
-  const eye=!st.lens;
+function viewSize(){
+  const s=SENS[st.s],f=st.f,d=st.d,eye=!st.lens;
   const hf=eye?120:deg(2*Math.atan(s.w/2/f)),vf=eye?80:deg(2*Math.atan(s.h/2/f));
   const W=eye?2*d*Math.tan(hf*Math.PI/360):d*s.w/f,H=eye?2*d*Math.tan(vf*Math.PI/360):d*s.h/f;
+  return {s,f,d,eye,hf,vf,W,H};
+}
+function render(){
+  const {s,f,d,eye,hf,vf,W,H}=viewSize();
+  st.panX=Math.max(-W,Math.min(W,st.panX));
+  st.panY=Math.max(-H,Math.min(H,st.panY));
   $('fN').value=f;$('dN').value=st.d;
   const sh=subjH(),nm=subjName();
   document.querySelectorAll('#subj button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.s===st.subj));
@@ -225,6 +239,7 @@ function render(){
   document.querySelector('#fN').closest('div.row').parentElement.style.opacity=eye?.45:1;
   document.querySelector('#sens').parentElement.style.opacity=eye?.45:1;
   $('ttl').textContent=eye?'What your eye sees':'What the sensor records';
+  $('recenter').disabled=Math.abs(st.panX)<1e-4&&Math.abs(st.panY)<1e-4;
   const ph=$('photo');
   ph.style.aspectRatio=eye?(W/H):(s.w+'/'+s.h);
   $('scene').innerHTML=sceneSVG(W,H,d);
@@ -256,7 +271,34 @@ $('subj').onclick=e=>{const b=e.target.closest('button');if(b){st.subj=b.dataset
 $('hS').oninput=e=>{st.hum=+e.target.value;render()};
 $('hN').oninput=e=>{const v=+e.target.value;if(v>=0.5&&v<=2.4){st.hum=v;render()}};
 $('lensBtn').onclick=()=>{st.lens=!st.lens;render()};
+$('recenter').onclick=()=>{st.panX=0;st.panY=0;render()};
 function renderKeep(id){const el=$(id),val=el.value;render();el.value=val}
+let drag=null;
+const photo=$('photo');
+photo.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return;
+  const fr=viewSize();
+  drag={id:e.pointerId,x:e.clientX,y:e.clientY,panX:st.panX,panY:st.panY,W:fr.W,H:fr.H};
+  photo.classList.add('dragging');
+  try{photo.setPointerCapture(e.pointerId)}catch(err){}
+});
+function applyDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  const rect=$('scene').getBoundingClientRect();
+  if(rect.width<1||rect.height<1)return;
+  st.panX=drag.panX-(e.clientX-drag.x)/rect.width*drag.W;
+  st.panY=drag.panY-(e.clientY-drag.y)/rect.height*drag.H;
+  render();
+}
+photo.addEventListener('pointermove',applyDrag);
+function endDrag(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  applyDrag(e);
+  drag=null;
+  photo.classList.remove('dragging');
+}
+photo.addEventListener('pointerup',endDrag);
+photo.addEventListener('pointercancel',endDrag);
 render();
 </script>
 </body>
